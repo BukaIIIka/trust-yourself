@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0f18">
+<title>Trust Yourself</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="steps hide" id="steps"><i id="d1"></i><i id="d2"></i><i id="d3"></i></div>
+<div class="prefs" id="prefs">
+  <button class="pref" id="pSound">sound</button>
+  <button class="pref" id="pBuzz">buzz</button>
+</div>
+
+<!-- intro -->
+<section class="screen on fade" id="s-intro">
+  <h1>Trust yourself</h1>
+  <p class="note">Three minutes for the moment when the doubt gets loud. Breath first, then a few questions, then something to hold on to. Nothing here can be failed.</p>
+  <button class="go" id="begin">Begin</button>
+  <p class="hint">Best with sound on and the phone in your hand.</p>
+</section>
+
+<!-- breath -->
+<section class="screen" id="s-breath">
+  <p class="counter" id="round">Round 1 of 2</p>
+  <p class="phase" id="phase">Press and hold</p>
+  <p class="note" id="breathNote">Keep your thumb anywhere on the screen. The circle will set the pace — follow it loosely, not perfectly.</p>
+  <p class="hint" id="breathHint"></p>
+</section>
+
+<!-- quiz -->
+<section class="screen" id="s-quiz">
+  <p class="say" id="question"></p>
+  <div class="opts" id="opts"></div>
+  <p class="hint" id="quizHint">Pick the one that's closest. Close is enough.</p>
+</section>
+
+<!-- anchor -->
+<section class="screen" id="s-anchor">
+  <p class="say" id="anchorSay">Take the sentence you'd like to keep.</p>
+  <div class="phrases" id="phrases"></div>
+  <div id="ownWrap"><input id="own" type="text" maxlength="60" placeholder="…or write your own" autocomplete="off"></div>
+  <button class="ghost" id="ownBtn">Write my own</button>
+  <p class="hint" id="anchorHint"></p>
+</section>
+
+<!-- final -->
+<section class="screen" id="s-final">
+  <p class="say" id="finalPhrase"></p>
+  <p class="note" id="finalNote">It's in there now. Stay as long as you like — the light doesn't run out.</p>
+  <button class="ghost" id="again">Go through it again</button>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

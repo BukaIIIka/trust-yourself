@@ -1,0 +1,95 @@
+:root{
+  --bg:#0b0f18;
+  --ink:#e9eef7;
+  --muted:#8c9cb4;
+  --line:rgba(160,182,214,.22);
+  --warm:#f2b061;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden}
+body{
+  font-family:"Inter","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;
+  touch-action:none;
+  overscroll-behavior:none;
+}
+canvas#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+.screen{
+  position:fixed;inset:0;display:none;flex-direction:column;justify-content:flex-end;
+  padding:0 26px calc(34px + env(safe-area-inset-bottom));
+}
+.screen.on{display:flex}
+.fade{animation:fade .9s cubic-bezier(.2,.8,.3,1) both}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+h1{
+  font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  font-weight:400;font-size:2.6rem;line-height:1.05;letter-spacing:-.01em;
+  margin:0 0 14px;max-width:11ch;
+}
+.say{
+  font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  font-size:1.35rem;line-height:1.45;font-weight:400;margin:0 0 20px;max-width:26ch;
+}
+.note{font-size:.92rem;line-height:1.55;color:var(--muted);margin:0 0 26px;max-width:34ch}
+.hint{font-size:.85rem;color:var(--muted);margin:14px 0 0;min-height:1.2em;transition:opacity .5s}
+
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.go{
+  display:inline-block;align-self:flex-start;
+  padding:15px 30px;border-radius:999px;
+  background:var(--ink);color:#0b0f18;font-size:1rem;font-weight:500;letter-spacing:.01em;
+  transition:transform .18s ease,opacity .18s ease;
+}
+.go:active{transform:scale(.97)}
+.ghost{align-self:flex-start;padding:13px 0;color:var(--muted);font-size:.92rem;border-bottom:1px solid var(--line)}
+
+.opts{display:flex;flex-direction:column;gap:9px;margin:0 0 4px}
+.opt{
+  text-align:left;padding:15px 17px;border:1px solid var(--line);border-radius:14px;
+  font-size:1rem;line-height:1.35;background:rgba(140,165,205,.05);
+  transition:background .25s ease,border-color .25s ease,transform .15s ease,opacity .3s;
+}
+.opt:active{transform:scale(.985);background:rgba(242,176,97,.12);border-color:rgba(242,176,97,.5)}
+.opt.picked{background:rgba(242,176,97,.16);border-color:rgba(242,176,97,.6)}
+
+.phrases{display:flex;flex-direction:column;gap:9px;margin-bottom:6px}
+.phrase{
+  font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  font-size:1.12rem;text-align:left;padding:16px 18px;border-radius:14px;
+  border:1px solid var(--line);background:rgba(140,165,205,.05);
+  transition:background .3s,border-color .3s,opacity .4s,transform .15s;
+}
+.phrase.chosen{background:rgba(242,176,97,.15);border-color:rgba(242,176,97,.65)}
+.phrase.dim{opacity:.28}
+#own{
+  width:100%;padding:15px 17px;border-radius:14px;border:1px solid var(--line);
+  background:rgba(140,165,205,.05);color:var(--ink);font-size:1.05rem;
+  font-family:"Iowan Old Style",Palatino,Georgia,serif;outline:none;
+}
+#own::placeholder{color:var(--muted);opacity:.8}
+#own.chosen{background:rgba(242,176,97,.15);border-color:rgba(242,176,97,.65)}
+#ownWrap{display:none;margin-bottom:6px}
+
+.steps{position:fixed;top:calc(20px + env(safe-area-inset-top));left:26px;display:flex;gap:7px}
+.steps i{width:5px;height:5px;border-radius:50%;background:rgba(160,182,214,.25);transition:background .6s}
+.steps i.at{background:var(--warm)}
+.steps.hide{opacity:0}
+
+.prefs{position:fixed;top:calc(14px + env(safe-area-inset-top));right:18px;display:flex;gap:6px}
+.pref{padding:8px 12px;border-radius:999px;font-size:.78rem;color:var(--muted);border:1px solid transparent}
+.pref.off{opacity:.45;text-decoration:line-through}
+
+.counter{
+  font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--muted);
+  margin:0 0 10px;letter-spacing:.02em;
+}
+.phase{
+  font-family:"Iowan Old Style",Palatino,Georgia,serif;font-size:1.5rem;margin:0 0 6px;
+  transition:opacity .4s;
+}
+@media (prefers-reduced-motion:reduce){.fade{animation:none}}
