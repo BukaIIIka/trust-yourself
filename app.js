@@ -1,12 +1,9 @@
-(function(){
-'use strict';
-
-/* ---------- helpers ---------- */
-var lerp=function(a,b,t){return a+(b-a)*t;};
-var clamp=function(v,a,b){return v<a?a:(v>b?b:v);};
-var easeInOut=function(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;};
-var mixC=function(a,b,t){return [lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];};
-var rgba=function(c,a){return 'rgba('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+','+a+')';};
+/* engine: canvas, figure, render loop, input, and the flow between stages */
+import {S,$,show,dots,lerp,clamp,easeInOut,mixC,rgba} from './core.js';
+import {AU,HP,audioStart,audioFrame,chord,buzz} from './audio.js';
+import {startBreath,resetBreath,breathFrame} from './breath.js';
+import {startQuiz,resetQuiz} from './quiz.js';
+import {startAnchor,resetAnchor,anchorFrame,ANCHOR_TIME} from './anchor.js';
 
 /* ---------- palette ---------- */
 var COLD_TOP=[9,13,22], COLD_BOT=[16,23,38];
@@ -95,299 +92,16 @@ function buildCircle(){
 }
 var FIG=buildFigure(), CIR=buildCircle();
 
-/* ---------- audio ---------- */
-var AU={on:true,ready:false};
-function audioStart(){
-  if(!AU.on) return;
-  if(AU.ready){ if(AU.ac.state==='suspended')AU.ac.resume(); return; }
-  var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
-  var ac=new AC();
-  var master=ac.createGain(); master.gain.value=0; master.connect(ac.destination);
-
-  var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=320; lp.Q.value=.5;
-  var dg=ac.createGain(); dg.gain.value=0; dg.connect(lp); lp.connect(master);
-  var freqs=[55,110,164.81,220], amps=[.5,.32,.14,.08], oscs=[];
-  for(var i=0;i<freqs.length;i++){
-    var o=ac.createOscillator(); o.type='sine'; o.frequency.value=freqs[i]*(i===1?1.004:1);
-    var g=ac.createGain(); g.gain.value=amps[i];
-    o.connect(g); g.connect(dg); o.start(); oscs.push({o:o,g:g,f:freqs[i]});
-  }
-  var lfo=ac.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.07;
-  var lfoG=ac.createGain(); lfoG.gain.value=1.4;
-  lfo.connect(lfoG); lfoG.connect(oscs[1].o.frequency); lfo.start();
-
-  var len=Math.floor(ac.sampleRate*2), buf=ac.createBuffer(1,len,ac.sampleRate), ch=buf.getChannelData(0);
-  for(var k=0;k<len;k++) ch[k]=(Math.random()*2-1)*0.45;
-  var src=ac.createBufferSource(); src.buffer=buf; src.loop=true;
-  var nf=ac.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=1500; nf.Q.value=.6;
-  var ng=ac.createGain(); ng.gain.value=0;
-  src.connect(nf); nf.connect(ng); ng.connect(master); src.start();
-
-  AU.ac=ac; AU.master=master; AU.dg=dg; AU.lp=lp; AU.ng=ng; AU.ready=true;
-  master.gain.setTargetAtTime(0.85,ac.currentTime,1.2);
-  dg.gain.setTargetAtTime(0.34,ac.currentTime,2.0);
-  ng.gain.setTargetAtTime(0.09,ac.currentTime,2.0);
-}
-function audioFrame(){
-  if(!AU.ready||!AU.on) return;
-  var t=AU.ac.currentTime;
-  AU.ng.gain.setTargetAtTime(0.10*S.glitch,t,0.7);
-  AU.lp.frequency.setTargetAtTime(300+1100*S.warmth,t,0.9);
-  AU.dg.gain.setTargetAtTime(0.28+0.22*S.open,t,0.35);
-}
-function tone(freq,dur,vol,type){
-  if(!AU.ready||!AU.on) return;
-  var ac=AU.ac,t=ac.currentTime;
-  var o=ac.createOscillator(); o.type=type||'triangle'; o.frequency.value=freq;
-  var g=ac.createGain(); g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(vol,t+0.06);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.connect(g); g.connect(AU.master); o.start(t); o.stop(t+dur+0.1);
-}
-function chord(){
-  if(!AU.ready||!AU.on) return;
-  var f=[261.63,329.63,392.00,493.88,523.25];
-  for(var i=0;i<f.length;i++){
-    (function(fr,d){setTimeout(function(){tone(fr,5.5,0.10,'sine');},d);})(f[i],i*260);
-  }
-}
-
-/* ---------- haptics ---------- */
-var HP={on:true};
-function buzz(p){
-  if(!HP.on||!navigator.vibrate) return;
-  try{navigator.vibrate(p);}catch(e){}
-}
-
-/* ---------- state ---------- */
-var S={
-  stage:'intro',
-  glitch:1, glitchT:1,
-  warmth:0, warmthT:0,
-  fill:0, fillT:0,
-  morph:0, morphT:0,
-  breath:0, open:0, phase:'', rounds:2,
-  holding:false, anchor:0,
-  particles:[], figPath:null,
-  slices:[], sliceAt:0, noiseAt:0, noiseX:0, noiseY:0,
-  cx:0, cy:0, size:0, scale:1,
-  last:0, t:0, tookHold:false
-};
-for(var si=0;si<18;si++) S.slices.push(0);
-
-/* ---------- content ---------- */
-var QUESTIONS=[
-  { q:"What are you doing now that you couldn't do three years ago?",
-    a:[{t:"Work that used to intimidate me",g:["growth","experience"]},
-       {t:"Speaking up where I used to stay quiet",g:["belonging","growth"]},
-       {t:"Carrying something that actually matters",g:["experience","enough"]}]},
-  { q:"When the doubt talks, whose voice is it using?",
-    a:[{t:"Someone else's, from a long time ago",g:["borrowed"]},
-       {t:"A younger, more frightened me",g:["compassion","borrowed"]},
-       {t:"I can't tell — it just sounds like the truth",g:["presence","borrowed"]}]},
-  { q:"A friend feels exactly this today. What do you say to them?",
-    a:[{t:"You're further along than you can see",g:["growth"]},
-       {t:"Nobody starts out already knowing",g:["process","permission"]},
-       {t:"You don't have to earn your place",g:["belonging","compassion"]}]},
-  { q:"What would be enough for today?",
-    a:[{t:"One honest step",g:["process","enough"]},
-       {t:"Showing up at all",g:["enough","compassion"]},
-       {t:"Finishing one small thing",g:["enough","growth"]}]}
-];
-var LINES={
-  growth:"I have already come further than I can see.",
-  experience:"What I've lived through is real.",
-  belonging:"I belong in the rooms I'm in.",
-  borrowed:"That voice is not mine to obey.",
-  compassion:"I can meet myself the way I meet a friend.",
-  process:"I don't have to know everything to begin.",
-  permission:"I'm allowed to be new at this.",
-  enough:"What I give today is enough.",
-  presence:"I can trust what I notice."
-};
-var ORDER=["experience","growth","enough","permission","borrowed","compassion","process","belonging","presence"];
-var tags={}, qi=0, chosen='';
-
-function pickLines(){
-  var scored=ORDER.map(function(k,i){return {k:k,s:(tags[k]||0)-i*0.01};});
-  scored.sort(function(a,b){return b.s-a.s;});
-  var out=[];
-  for(var i=0;i<scored.length&&out.length<3;i++){
-    if(scored[i].s>0) out.push(LINES[scored[i].k]);
-  }
-  var fallback=[LINES.experience,LINES.permission,LINES.enough];
-  for(var j=0;out.length<3;j++) if(out.indexOf(fallback[j])<0) out.push(fallback[j]);
-  return out;
-}
-
-/* ---------- dom ---------- */
-var $=function(id){return document.getElementById(id);};
-var screens={intro:$('s-intro'),breath:$('s-breath'),quiz:$('s-quiz'),anchor:$('s-anchor'),final:$('s-final')};
-function show(name){
-  for(var k in screens){ screens[k].classList.remove('on'); screens[k].classList.remove('fade'); }
-  if(screens[name]){ screens[name].classList.add('on'); void screens[name].offsetWidth; screens[name].classList.add('fade'); }
-}
-function dots(n){
-  $('steps').classList.toggle('hide',n===0);
-  $('d1').classList.toggle('at',n>=1); $('d2').classList.toggle('at',n>=2); $('d3').classList.toggle('at',n>=3);
-}
-
-/* ---------- stage 1: breath ---------- */
-var CYCLE=19, IN=4, HOLD=7, OUT=8;
-function breathFrame(dt){
-  if(S.holding){
-    S.breath+=dt;
-    if(!S.tookHold){S.tookHold=true;$('breathNote').textContent="Follow the circle. In as it grows, still as it holds, out as it lets go.";}
-  }
-  var total=CYCLE*S.rounds;
-  var p=clamp(S.breath/total,0,1);
-  S.glitchT=1-0.62*p;
-  S.warmthT=0.30*p;
-
-  var local=S.breath%CYCLE, ph, e;
-  if(local<IN){ ph='in'; e=easeInOut(local/IN); }
-  else if(local<IN+HOLD){ ph='hold'; e=1; }
-  else { ph='out'; e=1-easeInOut((local-IN-HOLD)/OUT); }
-  S.open=e;
-  S.scale=lerp(S.scale,0.66+0.40*e,Math.min(1,dt*7));
-
-  var r=Math.min(S.rounds,Math.floor(S.breath/CYCLE)+1);
-  $('round').textContent='Round '+r+' of '+S.rounds;
-
-  if(!S.holding){
-    if($('phase').textContent!=='Paused'){ $('phase').textContent='Paused'; }
-    $('breathHint').textContent=S.tookHold?'Rest your thumb back whenever you want. Nothing is lost.':'';
-  } else if(ph!==S.phase||$('phase').textContent==='Paused'){
-    S.phase=ph;
-    $('phase').textContent= ph==='in'?'Breathe in':(ph==='hold'?'Hold, gently':'Let it out');
-    $('breathHint').textContent='';
-    if(ph==='in') buzz([14,150,14,150,16,150,18]);
-    else if(ph==='out') buzz([10,260,10,260,10,260,10]);
-    else buzz(8);
-  }
-
-  if(S.breath>=total) toQuiz();
-}
-
-/* ---------- transitions ---------- */
-function toBreath(){
-  S.stage='breath'; dots(1); show('breath');
-  S.phase=''; $('phase').textContent='Press and hold';
-}
-function toQuiz(){
-  S.stage='morph'; S.morphT=1; buzz(24); show('none');
-  setTimeout(function(){
-    S.stage='quiz'; qi=0; dots(2); show('quiz'); renderQuestion();
-  },1700);
-}
-function renderQuestion(){
-  var Q=QUESTIONS[qi];
-  $('question').textContent=Q.q;
-  var box=$('opts'); box.innerHTML='';
-  Q.a.forEach(function(opt){
-    var b=document.createElement('button');
-    b.className='opt'; b.type='button'; b.textContent=opt.t;
-    b.addEventListener('click',function(){ answer(b,opt); });
-    box.appendChild(b);
-  });
-  $('quizHint').textContent = qi===0 ? "Pick the one that's closest. Close is enough." : '';
-}
-function answer(el,opt){
-  if(el.classList.contains('picked')) return;
-  el.classList.add('picked');
-  opt.g.forEach(function(g){ tags[g]=(tags[g]||0)+1; });
-  tone([392,440,523.25,587.33][qi]||440,1.6,0.09,'sine');
-  buzz([12,60,18]);
-  qi++;
-  S.glitchT=0.38*(1-qi/QUESTIONS.length);
-  S.warmthT=0.30+0.38*(qi/QUESTIONS.length);
-  setTimeout(function(){
-    if(qi<QUESTIONS.length) renderQuestion();
-    else toAnchor();
-  },620);
-}
-function toAnchor(){
-  S.stage='anchor'; S.glitchT=0; S.warmthT=0.72; dots(3); show('anchor');
-  var lines=pickLines(), box=$('phrases'); box.innerHTML='';
-  lines.forEach(function(txt){
-    var b=document.createElement('button');
-    b.className='phrase'; b.type='button'; b.textContent=txt;
-    b.addEventListener('click',function(){ choose(b,txt); });
-    box.appendChild(b);
-  });
-  $('ownBtn').style.display='';
-  $('ownWrap').style.display='none';
-  $('anchorHint').textContent='';
-}
-function choose(el,txt){
-  chosen=txt;
-  var all=document.querySelectorAll('.phrase');
-  for(var i=0;i<all.length;i++){
-    all[i].classList.remove('chosen');
-    all[i].classList.toggle('dim',all[i]!==el);
-  }
-  if(el) el.classList.add('chosen');
-  $('own').classList.remove('chosen');
-  $('anchorSay').textContent='Now press and hold the figure until the words are inside.';
-  $('anchorHint').textContent='Four seconds, more or less.';
-  $('ownBtn').style.display='none';
-  tone(523.25,1.8,0.08,'sine');
-}
+/* ---------- flow ---------- */
+function toBreath(){ startBreath(toQuiz); }
+function toQuiz(){ startQuiz(toAnchor); }
+function toAnchor(){ startAnchor(toFinal); }
 function toFinal(){
   S.stage='final'; S.fillT=1; S.warmthT=1; S.glitchT=0;
-  $('finalPhrase').textContent=chosen;
+  $('finalPhrase').textContent=S.chosen;
   show('final'); dots(3);
   chord();
   buzz([60,90,80,110,120,140,160,200,120]);
-}
-
-/* ---------- anchoring ---------- */
-var ANCHOR_TIME=4.2, spawnAt=0;
-function anchorFrame(dt){
-  if(!chosen) return;
-  if(S.holding){
-    S.anchor=Math.min(ANCHOR_TIME,S.anchor+dt);
-    S.fillT=S.anchor/ANCHOR_TIME;
-    S.warmthT=0.72+0.28*(S.anchor/ANCHOR_TIME);
-    if(S.t>spawnAt){ spawnAt=S.t+0.07; spawnParticles(2); }
-    var step=Math.floor(S.anchor/0.7);
-    if(step!==S.lastStep){ S.lastStep=step; buzz(16+step*10); }
-    if(S.anchor>=ANCHOR_TIME) toFinal();
-  } else {
-    S.anchor=Math.max(0,S.anchor-dt*0.35);
-    S.fillT=S.anchor/ANCHOR_TIME;
-  }
-}
-function spawnParticles(n){
-  var el=document.querySelector('.phrase.chosen')||document.querySelector('#own.chosen');
-  var ox=W*0.5, oy=H*0.78;
-  if(el){ var r=el.getBoundingClientRect(); ox=r.left+r.width*(0.2+Math.random()*0.6); oy=r.top+r.height*0.5; }
-  for(var i=0;i<n;i++){
-    var tgt=insidePoint();
-    S.particles.push({
-      x:ox+(Math.random()-0.5)*20, y:oy+(Math.random()-0.5)*14,
-      tx:tgt.x, ty:tgt.y, t:0, dur:1.1+Math.random()*0.9,
-      r:1+Math.random()*2.1, sw:(Math.random()-0.5)*90
-    });
-  }
-}
-function inPoly(pts,x,y){
-  var inside=false;
-  for(var i=0,j=pts.length-1;i<pts.length;j=i++){
-    var xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
-    if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/((yj-yi)||1e-6)+xi)) inside=!inside;
-  }
-  return inside;
-}
-function insidePoint(){
-  var pts=S.figPts;
-  if(!pts) return {x:S.cx,y:S.cy};
-  for(var i=0;i<26;i++){
-    var x=S.cx+(Math.random()-0.5)*S.size*0.66;
-    var y=S.cy+(Math.random()-0.5)*S.size*1.0;
-    if(inPoly(pts,x,y)) return {x:x,y:y};
-  }
-  return {x:S.cx,y:S.cy+S.size*0.12};
 }
 
 /* ---------- draw ---------- */
@@ -491,7 +205,7 @@ function drawParticles(dt){
   }
 }
 function drawHoldRing(){
-  if(S.stage!=='anchor'||!chosen||S.anchor<=0.01) return;
+  if(S.stage!=='anchor'||!S.chosen||S.anchor<=0.01) return;
   var r=S.size*0.62, a=S.anchor/ANCHOR_TIME;
   ctx.save();
   ctx.strokeStyle=rgba(GLOW,0.55); ctx.lineWidth=2; ctx.lineCap='round';
@@ -547,29 +261,9 @@ document.addEventListener('contextmenu',function(e){e.preventDefault();});
 $('begin').addEventListener('click',function(){
   audioStart(); buzz(20); toBreath();
 });
-$('ownBtn').addEventListener('click',function(){
-  $('ownWrap').style.display='block'; $('ownBtn').style.display='none'; $('own').focus();
-});
-$('own').addEventListener('keydown',function(e){ if(e.key==='Enter') $('own').blur(); });
-$('own').addEventListener('blur',function(){
-  var v=$('own').value.trim();
-  if(v){
-    var all=document.querySelectorAll('.phrase');
-    for(var i=0;i<all.length;i++){ all[i].classList.add('dim'); all[i].classList.remove('chosen'); }
-    $('own').classList.add('chosen');
-    chosen=v;
-    $('anchorSay').textContent='Now press and hold the figure until the words are inside.';
-    $('anchorHint').textContent='Four seconds, more or less.';
-    tone(523.25,1.8,0.08,'sine');
-  }
-});
 $('again').addEventListener('click',function(){
-  tags={}; qi=0; chosen=''; S.particles=[];
-  S.breath=0; S.anchor=0; S.tookHold=false; S.lastStep=-1;
+  resetBreath(); resetQuiz(); resetAnchor();
   S.glitchT=1; S.warmthT=0; S.fillT=0; S.morphT=0; S.scale=1;
-  $('breathNote').textContent="Keep your thumb anywhere on the screen. The circle will set the pace — follow it loosely, not perfectly.";
-  $('anchorSay').textContent='Take the sentence you\'d like to keep.';
-  $('own').value=''; $('own').classList.remove('chosen');
   toBreath();
 });
 $('pSound').addEventListener('click',function(){
@@ -583,8 +277,6 @@ $('pBuzz').addEventListener('click',function(){
 });
 
 /* ---------- go ---------- */
-S.lastStep=-1;
 resize();
 dots(0);
 requestAnimationFrame(frame);
-})();
