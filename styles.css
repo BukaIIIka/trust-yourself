@@ -48,10 +48,15 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .go:active{transform:scale(.97)}
 .ghost{align-self:flex-start;padding:13px 0;color:var(--muted);font-size:.92rem;border-bottom:1px solid var(--line)}
 
-.opts{display:flex;flex-direction:column;gap:9px;margin:0 0 4px}
+.opts{
+  display:flex;flex-direction:column;gap:8px;margin:0 0 4px;
+  max-height:34vh;overflow-y:auto;overscroll-behavior:contain;
+  touch-action:pan-y;scrollbar-width:none;
+}
+.opts::-webkit-scrollbar{display:none}
 .opt{
-  text-align:left;padding:15px 17px;border:1px solid var(--line);border-radius:14px;
-  font-size:1rem;line-height:1.35;background:rgba(140,165,205,.05);
+  flex:none;text-align:left;padding:13px 16px;border:1px solid var(--line);border-radius:14px;
+  font-size:.97rem;line-height:1.35;background:rgba(140,165,205,.05);
   transition:background .25s ease,border-color .25s ease,transform .15s ease,opacity .3s;
 }
 .opt:active{transform:scale(.985);background:rgba(242,176,97,.12);border-color:rgba(242,176,97,.5)}
