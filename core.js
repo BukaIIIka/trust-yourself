@@ -14,7 +14,7 @@ export var S={
   warmth:0, warmthT:0,
   fill:0, fillT:0,
   morph:0, morphT:0,
-  breath:0, open:0, phase:'', rounds:2,
+  breath:0, open:0, phase:'', rounds:5,
   holding:false, anchor:0, lastStep:-1, chosen:'',
   particles:[], figPts:null,
   slices:[], sliceAt:0, noiseAt:0, noiseX:0, noiseY:0,
