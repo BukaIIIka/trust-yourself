@@ -41,10 +41,14 @@
 
 <!-- anchor -->
 <section class="screen" id="s-anchor">
-  <p class="say" id="anchorSay">Take the sentence you'd like to keep.</p>
-  <div class="phrases opts" id="phrases"></div>
-  <label id="ownWrap"><input id="own" type="text" maxlength="60" placeholder="…or write your own" autocomplete="off"></label>
-  <button class="ghost" id="ownBtn">Write my own</button>
+  <p class="say" id="anchorSay">A thought to take with you</p>
+  <p class="phrase" id="phrase"></p>
+  <label id="ownWrap"><textarea id="own" rows="3" maxlength="120" enterkeyhint="done" placeholder="Write it in your own words" autocomplete="off"></textarea></label>
+  <div class="acts">
+    <button class="go" id="keepBtn">Keep this</button>
+    <button class="ghost" id="editBtn">Edit</button>
+    <button class="ghost" id="skipBtn">Skip</button>
+  </div>
   <p class="hint" id="anchorHint"></p>
 </section>
 
@@ -52,6 +56,7 @@
 <section class="screen" id="s-final">
   <p class="say" id="finalPhrase"></p>
   <p class="note" id="finalNote">It's in there now. Stay as long as you like — the light doesn't run out.</p>
+  <button class="ghost" id="thoughtBtn">Take a thought with you</button>
   <button class="ghost" id="again">Go through it again</button>
 </section>
 

@@ -1,51 +1,87 @@
 /* stage 2 content: a decision tree. Each node is a question whose answers
-   point at the next node id, or 'END'. Release nodes carry a `release` type
-   that stage 3 uses to pick the phrase. */
+   point at the next node id, or 'END'. Stage 3 reads the walk as
+   'node.answer' ids (see AnchorRules), so wording and order can change
+   as long as the answer ids stay. */
 
-export var ReleasePhrases = {
-  action: "I know my next step. I don't need to solve what comes after it yet.",
-  uncertainty: "I don't have new information right now. This can remain unknown for now.",
-  past: "I've taken what I can learn from this. I don't need to replay it again.",
-  self_criticism: "I can keep the lesson without continuing to punish myself.",
-  checking: "Another check may bring relief, but I don't need to follow the urge right now.",
-  meta: "The thought can still be here. I don't have to keep answering it.",
+/* stage 3 lines: the suggested thought and an alternative wording */
+export var Anchors = {
+  A01: "I can take the next step without solving everything that comes after it.",
+  A02: "I can look for a specific answer without needing certainty about everything.",
+  A03: "I can address what happened without blaming myself over and over.",
+  A04: "I can choose a time for this step and leave it for now.",
+  A05: "I can take a small step while I still feel unsure.",
+  A06: "I can leave this open until there's more information.",
+  A07: "I can choose when to revisit this without solving it now.",
+  A08: "I can take one lesson forward without replaying the whole situation.",
+  A09: "I can leave this for now without finding a lesson.",
+  A10: "I can speak to myself with the care I'd offer a friend.",
+  A11: "I can take a small step while I still feel upset.",
+  A12: "I can let the urge to check be there while I do something else.",
+  A13: "The thought can stay while I do something else.",
+  A14: "I can take a pause without solving this first.",
+  A15: "I can leave myself a reminder and return to this later.",
+  A16: "I don't have to work out the next step alone.",
+  A17: "I don't need to force a takeaway right now.",
 };
 
-/* branch prefix of a node id → the release type that branch leans toward */
-export var BranchRelease = {
-  solve: 'action',
-  certainty: 'uncertainty',
-  past: 'past',
-  judge: 'self_criticism',
-  checking: 'checking',
-  meta: 'meta',
-};
+/* which anchor a walk leads to: its last answer, refined by any earlier
+   answer listed in `after`. First match wins. "Finish here" answers
+   (id 'finish') have no rule: they skip anchoring, and A17 is offered
+   only if the person asks for it. */
+export var AnchorRules = [
+  { last: ['release_action.now'], after: ['checking_1.not_checked', 'checking_1.changed'], anchor: 'A02' },
+  { last: ['release_action.now'], after: ['judge_1.put_right'], anchor: 'A03' },
+  { last: ['release_action.now'], anchor: 'A01' },
+  { last: ['release_action.later'], anchor: 'A04' },
+  { last: ['release_uncertainty.small_task'], after: ['certainty_2.unavailable'], anchor: 'A06' },
+  { last: ['release_uncertainty.small_task'], anchor: 'A05' },
+  { last: ['release_uncertainty.revisit'], anchor: 'A07' },
+  { last: ['release_past.write_down'], anchor: 'A08' },
+  { last: ['release_past.back_to_day'], anchor: 'A09' },
+  { last: ['release_self_compassion.friend'], anchor: 'A10' },
+  { last: ['release_self_compassion.small_task'], anchor: 'A11' },
+  { last: ['release_checking.back_to_task', 'release_checking.other_activity'], anchor: 'A12' },
+  { last: ['release_meta.back_to_task', 'release_meta.simple_activity'], anchor: 'A13' },
+  { last: ['release_pause.look_around'], anchor: 'A14' },
+  { last: ['release_pause.write_line'], anchor: 'A15' },
+  { last: ['release_pause.ask_someone'], anchor: 'A16' },
+];
 
 export var Questions = new Map([
   [
     'root',
     {
-      question: "Which sentence describes you best right now?",
+      question: 'What feels closest right now?',
       answers: [
         {
-          text: "I'm trying to solve a problem, but I can't find the right solution.",
+          id: 'stuck',
+          text: "I'm stuck on a problem.",
           next_option: 'solve_1',
         },
         {
-          text: "I'm trying to understand for sure what happened or what will happen.",
+          id: 'definite_answer',
+          text: 'I keep looking for a definite answer.',
           next_option: 'certainty_1',
         },
         {
-          text: "I keep going back to something I did or didn't do.",
+          id: 'replaying',
+          text: 'I keep replaying something that happened.',
           next_option: 'past_1',
         },
         {
-          text: "I'm judging myself for a decision I made.",
+          id: 'blaming',
+          text: 'I keep blaming myself.',
           next_option: 'judge_1',
         },
         {
-          text: "I know thinking isn't helping, but I can't seem to stop.",
+          id: 'cant_stop',
+          text: "I can't stop thinking about it.",
           next_option: 'meta_1',
+        },
+        {
+          id: 'not_sure',
+          text: "I'm not sure which one fits.",
+          next_option: 'release_pause',
         },
       ],
     },
@@ -58,19 +94,22 @@ export var Questions = new Map([
   [
     'solve_1',
     {
-      question: "If you kept thinking about this for another 10 minutes, do you feel it would give you something new?",
+      question: 'Do you have a next step in mind?',
       answers: [
         {
-          text: "Yes, probably.",
+          id: 'has_step',
+          text: 'Yes, I know one thing I could do.',
           next_option: 'solve_2',
         },
         {
-          text: "Not really.",
-          next_option: 'loop_1',
+          id: 'need_fact',
+          text: 'Not yet. I need one specific fact first.',
+          next_option: 'certainty_2',
         },
         {
-          text: "I'm not sure.",
-          next_option: 'solve_2',
+          id: 'no_start',
+          text: "No, I don't know where to start.",
+          next_option: 'release_pause',
         },
       ],
     },
@@ -79,82 +118,55 @@ export var Questions = new Map([
   [
     'solve_2',
     {
-      question: "Is there one concrete action you can take that could actually change the situation?",
+      question: 'What would that step involve?',
       answers: [
         {
-          text: "Yes.",
-          next_option: 'solve_3',
-        },
-        {
-          text: "No.",
-          next_option: 'certainty_2',
-        },
-        {
-          text: "I'm not sure.",
-          next_option: 'certainty_2',
-        },
-      ],
-    },
-  ],
-
-  [
-    'solve_3',
-    {
-      question: "Would that action change something in reality, or mostly make you feel safer for a moment?",
-      answers: [
-        {
-          text: "It could actually change something.",
-          next_option: 'solve_4',
-        },
-        {
-          text: "It would mostly make me feel safer.",
-          next_option: 'checking_1',
-        },
-        {
-          text: "I'm not sure.",
-          next_option: 'solve_4',
-        },
-      ],
-    },
-  ],
-
-  [
-    'solve_4',
-    {
-      question: "Can you decide on that one next step without solving everything that comes after it?",
-      answers: [
-        {
-          text: "Yes.",
+          id: 'change',
+          text: 'Changing something or trying a solution.',
           next_option: 'release_action',
         },
         {
-          text: "I still feel I need to know what happens next.",
-          next_option: 'certainty_1',
+          id: 'look_up',
+          text: 'Looking something up, checking, or asking for an answer.',
+          next_option: 'checking_1',
+        },
+        {
+          id: 'not_sure',
+          text: "I'm not sure yet.",
+          next_option: 'release_pause',
         },
       ],
     },
   ],
 
   // -------------------------
-  // UNCERTAINTY / FUTURE WORRY
+  // LOOKING FOR AN ANSWER
   // -------------------------
 
   [
     'certainty_1',
     {
-      question: "Are you looking for new information, or for certainty about something you can't fully know yet?",
+      question: 'What are you looking for?',
       answers: [
         {
-          text: "I think there is still information I can get.",
+          id: 'fact',
+          text: 'One specific fact.',
           next_option: 'certainty_2',
         },
         {
-          text: "I'm mostly looking for certainty.",
-          next_option: 'certainty_3',
+          id: 'feel_sure',
+          text: 'The feeling of being completely sure.',
+          next_option: 'release_uncertainty',
         },
         {
+          id: 'recheck',
+          text: 'Another check of an answer I already have.',
+          next_option: 'checking_1',
+        },
+        {
+          id: 'not_sure',
           text: "I'm not sure.",
-          next_option: 'certainty_2',
+          next_option: 'release_pause',
         },
       ],
     },
@@ -163,154 +175,55 @@ export var Questions = new Map([
   [
     'certainty_2',
     {
-      question: "Has any genuinely new information appeared since you started thinking about this?",
+      question: 'Can you get that information right now?',
       answers: [
         {
-          text: "Yes.",
-          next_option: 'solve_2',
+          id: 'available',
+          text: 'Yes, I know where to look or whom to ask.',
+          next_option: 'checking_1',
         },
         {
-          text: "No.",
-          next_option: 'certainty_3',
-        },
-      ],
-    },
-  ],
-
-  [
-    'certainty_3',
-    {
-      question: "If no new information appeared, what is your mind trying to get by continuing to think?",
-      answers: [
-        {
-          text: "A feeling that I finally understand what will happen.",
-          next_option: 'certainty_4',
-        },
-        {
-          text: "A feeling that I'm prepared for the worst.",
-          next_option: 'certainty_4',
-        },
-        {
-          text: "I don't really know.",
-          next_option: 'certainty_4',
-        },
-      ],
-    },
-  ],
-
-  [
-    'certainty_4',
-    {
-      question: "Does this situation actually need to be fully known right now?",
-      answers: [
-        {
-          text: "Yes, I need to act now.",
-          next_option: 'solve_2',
-        },
-        {
-          text: "Not really.",
-          next_option: 'certainty_5',
-        },
-        {
-          text: "I'm not sure.",
-          next_option: 'certainty_5',
-        },
-      ],
-    },
-  ],
-
-  [
-    'certainty_5',
-    {
-      question: "Could you let part of this situation remain unknown for now?",
-      answers: [
-        {
-          text: "Yes.",
+          id: 'unavailable',
+          text: "No, it isn't available right now.",
           next_option: 'release_uncertainty',
         },
         {
-          text: "Maybe.",
-          next_option: 'release_uncertainty',
-        },
-        {
-          text: "Not yet.",
-          next_option: 'meta_1',
+          id: 'not_sure',
+          text: "I'm not sure where to look.",
+          next_option: 'release_pause',
         },
       ],
     },
   ],
 
   // -------------------------
-  // PAST RUMINATION
+  // REPLAYING THE PAST
   // -------------------------
 
   [
     'past_1',
     {
-      question: "When you go back over what happened, are you discovering something new or repeating what you already know?",
+      question: 'Can you do anything useful about what happened?',
       answers: [
         {
-          text: "I'm still discovering something useful.",
-          next_option: 'past_2',
+          id: 'has_step',
+          text: 'Yes, I know a step I could take.',
+          next_option: 'solve_2',
         },
         {
-          text: "I'm mostly repeating what I already know.",
-          next_option: 'loop_1',
+          id: 'lesson',
+          text: 'I can keep one lesson for next time.',
+          next_option: 'release_past',
         },
         {
+          id: 'not_now',
+          text: 'Not right now.',
+          next_option: 'release_past',
+        },
+        {
+          id: 'not_sure',
           text: "I'm not sure.",
-          next_option: 'past_2',
-        },
-      ],
-    },
-  ],
-
-  [
-    'past_2',
-    {
-      question: "Have you already taken one useful lesson from what happened?",
-      answers: [
-        {
-          text: "Yes.",
-          next_option: 'past_3',
-        },
-        {
-          text: "Not yet.",
-          next_option: 'past_4',
-        },
-      ],
-    },
-  ],
-
-  [
-    'past_3',
-    {
-      question: "Is there anything more to learn right now, or has reflection started turning into repetition?",
-      answers: [
-        {
-          text: "There is something genuinely new to learn.",
-          next_option: 'past_4',
-        },
-        {
-          text: "It's mostly repetition now.",
-          next_option: 'release_past',
-        },
-      ],
-    },
-  ],
-
-  [
-    'past_4',
-    {
-      question: "Can you name one thing you would like to do differently next time, without needing to solve the whole past?",
-      answers: [
-        {
-          text: "Yes.",
-          next_option: 'release_past',
-        },
-        {
-          text: "I keep coming back to what I should have done.",
-          next_option: 'judge_1',
+          next_option: 'release_pause',
         },
       ],
     },
@@ -323,276 +236,88 @@ export var Questions = new Map([
   [
     'judge_1',
     {
-      question: "Are you trying to understand your decision, or are you punishing yourself for having made it?",
+      question: 'What would be helpful right now?',
       answers: [
         {
-          text: "I'm trying to understand it.",
-          next_option: 'judge_2',
+          id: 'put_right',
+          text: 'Finding a step to put something right.',
+          next_option: 'solve_1',
         },
         {
-          text: "I'm mostly judging or punishing myself.",
-          next_option: 'judge_3',
+          id: 'lesson',
+          text: 'Keeping one lesson for next time.',
+          next_option: 'release_past',
         },
         {
-          text: "Both.",
-          next_option: 'judge_2',
-        },
-      ],
-    },
-  ],
-
-  [
-    'judge_2',
-    {
-      question: "Are you judging your past decision using information you only learned later?",
-      answers: [
-        {
-          text: "Yes.",
-          next_option: 'judge_3',
-        },
-        {
-          text: "No.",
-          next_option: 'judge_4',
-        },
-        {
-          text: "Maybe.",
-          next_option: 'judge_3',
-        },
-      ],
-    },
-  ],
-
-  [
-    'judge_3',
-    {
-      question: "What could you realistically know at that moment, before you knew how things would turn out?",
-      answers: [
-        {
-          text: "I had less information than I have now.",
-          next_option: 'judge_4',
-        },
-        {
-          text: "I think I still should have known better.",
-          next_option: 'judge_4',
-        },
-      ],
-    },
-  ],
-
-  [
-    'judge_4',
-    {
-      question: "If you stopped punishing yourself for it, would there still be something useful left to learn?",
-      answers: [
-        {
-          text: "Yes.",
-          next_option: 'judge_5',
-        },
-        {
-          text: "No.",
+          id: 'kinder',
+          text: 'Being a little kinder to myself.',
           next_option: 'release_self_compassion',
         },
         {
+          id: 'not_sure',
           text: "I'm not sure.",
-          next_option: 'judge_5',
-        },
-      ],
-    },
-  ],
-
-  [
-    'judge_5',
-    {
-      question: "Can you take one lesson from this without continuing to punish yourself for it?",
-      answers: [
-        {
-          text: "Yes.",
-          next_option: 'release_self_compassion',
-        },
-        {
-          text: "Not yet.",
-          next_option: 'meta_1',
+          next_option: 'release_pause',
         },
       ],
     },
   ],
 
   // -------------------------
-  // CHECKING / REASSURANCE
+  // CHECKING
   // -------------------------
 
   [
     'checking_1',
     {
-      question: "Have you already checked, replayed, searched, or asked for reassurance about this?",
+      question: 'What is the reason for this check?',
       answers: [
         {
-          text: "Yes.",
-          next_option: 'checking_2',
+          id: 'not_checked',
+          text: "I haven't checked this information yet.",
+          next_option: 'release_action',
         },
         {
-          text: "No.",
-          next_option: 'certainty_3',
-        },
-      ],
-    },
-  ],
-
-  [
-    'checking_2',
-    {
-      question: "Did the last check give you lasting clarity, or did you soon feel the need to check again?",
-      answers: [
-        {
-          text: "The clarity lasted.",
-          next_option: 'solve_2',
+          id: 'changed',
+          text: 'Something has changed, or this check is required.',
+          next_option: 'release_action',
         },
         {
-          text: "I wanted to check again.",
-          next_option: 'checking_3',
-        },
-      ],
-    },
-  ],
-
-  [
-    'checking_3',
-    {
-      question: "Would checking again give you genuinely new information, or mostly temporary relief?",
-      answers: [
-        {
-          text: "Genuinely new information.",
-          next_option: 'solve_2',
-        },
-        {
-          text: "Mostly temporary relief.",
-          next_option: 'checking_4',
-        },
-        {
-          text: "I'm not sure.",
-          next_option: 'checking_4',
-        },
-      ],
-    },
-  ],
-
-  [
-    'checking_4',
-    {
-      question: "Could another check be part of the loop rather than the way out of it?",
-      answers: [
-        {
-          text: "That feels true.",
+          id: 'reassurance',
+          text: 'I have the answer, but I want to feel sure again.',
           next_option: 'release_checking',
         },
         {
-          text: "I'm not convinced.",
-          next_option: 'certainty_5',
+          id: 'not_sure',
+          text: "I'm not sure.",
+          next_option: 'release_pause',
         },
       ],
     },
   ],
 
   // -------------------------
-  // META-WORRY / CAN'T STOP
+  // DIFFICULTY DISENGAGING
   // -------------------------
 
   [
     'meta_1',
     {
-      question: "What feels harder right now: the situation itself, or the fact that your mind won't let it go?",
+      question: 'What feels manageable right now?',
       answers: [
         {
-          text: "The situation itself.",
-          next_option: 'certainty_1',
-        },
-        {
-          text: "The fact that I can't stop thinking.",
-          next_option: 'meta_2',
-        },
-        {
-          text: "Both.",
-          next_option: 'meta_2',
-        },
-      ],
-    },
-  ],
-
-  [
-    'meta_2',
-    {
-      question: "Does the thought need to disappear before you can stop responding to it?",
-      answers: [
-        {
-          text: "It feels like it does.",
-          next_option: 'meta_3',
-        },
-        {
-          text: "Maybe not.",
-          next_option: 'meta_3',
-        },
-      ],
-    },
-  ],
-
-  [
-    'meta_3',
-    {
-      question: "Could you let the thought stay for a moment without trying to solve, fight, or answer it?",
-      answers: [
-        {
-          text: "I'll try.",
-          next_option: 'meta_4',
-        },
-        {
-          text: "That feels too difficult right now.",
-          next_option: 'release_pause',
-        },
-      ],
-    },
-  ],
-
-  [
-    'meta_4',
-    {
-      question: "If the thought is still here, does that mean you have to continue the conversation with it?",
-      answers: [
-        {
-          text: "No.",
+          id: 'simple_thing',
+          text: 'Doing one simple thing while the thought is still there.',
           next_option: 'release_meta',
         },
         {
-          text: "It still feels like I do.",
+          id: 'pause',
+          text: 'Just taking a pause.',
           next_option: 'release_pause',
         },
-      ],
-    },
-  ],
-
-  // -------------------------
-  // GENERIC LOOP
-  // -------------------------
-
-  [
-    'loop_1',
-    {
-      question: "If thinking isn't giving you new information, what is keeping you in the loop?",
-      answers: [
         {
-          text: "I want to know for sure what will happen.",
-          next_option: 'certainty_3',
-        },
-        {
-          text: "I keep blaming myself for what happened.",
-          next_option: 'judge_1',
-        },
-        {
-          text: "I feel the need to check again.",
-          next_option: 'checking_1',
-        },
-        {
-          text: "I simply can't seem to let the thought go.",
-          next_option: 'meta_1',
+          id: 'not_sure',
+          text: "I'm not sure.",
+          next_option: 'release_pause',
         },
       ],
     },
@@ -600,23 +325,31 @@ export var Questions = new Map([
 
   // -------------------------
   // RELEASE NODES
-  // `release` is the ReleasePhrases key
-  // that stage 3 offers first.
+  //
+  // END is a terminal marker, not a question node.
+  // Keep the release node ID and the selected answer for stage 3.
+  // "Finish here" should close the flow without starting an exercise.
   // -------------------------
 
   [
     'release_action',
     {
-      release: 'action',
-      question: "You have a next step. Does the rest need to be solved right now?",
+      question: 'When would you like to take that one step?',
       answers: [
         {
-          text: "No. One next step is enough for now.",
+          id: 'now',
+          text: "Now. I'll focus on just that step.",
           next_option: 'END',
         },
         {
-          text: "I still feel I need certainty.",
-          next_option: 'certainty_3',
+          id: 'later',
+          text: "Later. I'll choose a time for it.",
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: "I don't want to decide right now. Finish here.",
+          next_option: 'END',
         },
       ],
     },
@@ -625,16 +358,22 @@ export var Questions = new Map([
   [
     'release_uncertainty',
     {
-      release: 'uncertainty',
-      question: "Can you leave the unanswered part unanswered for now?",
+      question: 'What would you like to do while you feel unsure?',
       answers: [
         {
-          text: "Yes. It can stay unknown for now.",
+          id: 'small_task',
+          text: 'Return to one small task, even without a definite answer.',
           next_option: 'END',
         },
         {
-          text: "I'm still struggling with that.",
-          next_option: 'meta_1',
+          id: 'revisit',
+          text: 'Choose when to revisit this, then leave it for now.',
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: 'Nothing else right now. Finish here.',
+          next_option: 'END',
         },
       ],
     },
@@ -643,16 +382,22 @@ export var Questions = new Map([
   [
     'release_past',
     {
-      release: 'past',
-      question: "If you already have the lesson, does going over the past again add anything useful?",
+      question: 'What would you like to do now?',
       answers: [
         {
-          text: "No. I can leave it here.",
+          id: 'write_down',
+          text: 'Write down one thing to try next time.',
           next_option: 'END',
         },
         {
-          text: "I still feel I should have done better.",
-          next_option: 'judge_1',
+          id: 'back_to_day',
+          text: 'Return to my day, even without a clear lesson.',
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: 'Just finish here for now.',
+          next_option: 'END',
         },
       ],
     },
@@ -661,16 +406,22 @@ export var Questions = new Map([
   [
     'release_self_compassion',
     {
-      release: 'self_criticism',
-      question: "Can the lesson stay, even if the self-punishment stops?",
+      question: 'What would you like to try now?',
       answers: [
         {
-          text: "Yes.",
+          id: 'friend',
+          text: "Write one sentence I'd say to a friend in this situation.",
           next_option: 'END',
         },
         {
-          text: "Not yet.",
-          next_option: 'meta_1',
+          id: 'small_task',
+          text: 'Return to a small task, even if I still feel upset.',
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: 'Nothing else right now. Finish here.',
+          next_option: 'END',
         },
       ],
     },
@@ -679,16 +430,22 @@ export var Questions = new Map([
   [
     'release_checking',
     {
-      release: 'checking',
-      question: "Can you choose not to check again right now, even without feeling completely certain?",
+      question: 'What would you like to do instead of checking again?',
       answers: [
         {
-          text: "Yes.",
+          id: 'back_to_task',
+          text: 'Return to what I was doing for a few minutes.',
           next_option: 'END',
         },
         {
-          text: "Not yet.",
-          next_option: 'certainty_5',
+          id: 'other_activity',
+          text: 'Choose another small activity for a few minutes.',
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: "I'm not ready to try that. Finish here.",
+          next_option: 'END',
         },
       ],
     },
@@ -697,15 +454,21 @@ export var Questions = new Map([
   [
     'release_meta',
     {
-      release: 'meta',
-      question: "Can the thought stay in the background without needing another answer from you?",
+      question: 'What could you do while the thought is still there?',
       answers: [
         {
-          text: "Yes.",
+          id: 'back_to_task',
+          text: 'Return to one small part of what I was doing.',
           next_option: 'END',
         },
         {
-          text: "I'll try, even if it feels uncomfortable.",
+          id: 'simple_activity',
+          text: 'Try a simple activity, like washing a cup.',
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: 'Nothing right now. Finish here.',
           next_option: 'END',
         },
       ],
@@ -715,15 +478,26 @@ export var Questions = new Map([
   [
     'release_pause',
     {
-      release: 'meta',
-      question: "Would it be enough to stop solving this for the next few minutes, without needing the thought to disappear?",
+      question: 'What would help you step away for a moment?',
       answers: [
         {
-          text: "Yes.",
+          id: 'look_around',
+          text: 'Look around and notice three things I can see.',
           next_option: 'END',
         },
         {
-          text: "I'll try.",
+          id: 'write_line',
+          text: 'Write one line about the issue and choose when to return to it.',
+          next_option: 'END',
+        },
+        {
+          id: 'ask_someone',
+          text: 'Ask someone to help me choose one practical next step.',
+          next_option: 'END',
+        },
+        {
+          id: 'finish',
+          text: 'Nothing else right now. Finish here.',
           next_option: 'END',
         },
       ],

@@ -3,7 +3,7 @@ import {S,$,show,dots,lerp,clamp,easeInOut,mixC,rgba} from './core.js';
 import {AU,HP,audioStart,audioFrame,chord,buzz} from './audio.js';
 import {startBreath,resetBreath,breathFrame} from './breath.js';
 import {startQuiz,resetQuiz} from './quiz.js';
-import {startAnchor,resetAnchor,anchorFrame,ANCHOR_TIME} from './anchor.js';
+import {startAnchor,resetAnchor,anchorFrame,anchorFor,ANCHOR_TIME} from './anchor.js';
 
 /* ---------- palette ---------- */
 var COLD_TOP=[9,13,22], COLD_BOT=[16,23,38];
@@ -93,15 +93,25 @@ function buildCircle(){
 var FIG=buildFigure(), CIR=buildCircle();
 
 /* ---------- flow ---------- */
+var KEPT_NOTE="It's in there now. Stay as long as you like — the light doesn't run out.";
+var ENDED="That's all for now.", ENDED_NOTE="Stay as long as you like.";
+
 function toBreath(){ startBreath(toQuiz); }
 function toQuiz(){ startQuiz(toAnchor); }
-function toAnchor(){ startAnchor(toFinal); }
-function toFinal(){
-  S.stage='final'; S.fillT=1; S.warmthT=1; S.glitchT=0;
-  $('finalPhrase').textContent=S.chosen;
+function toAnchor(picks){
+  var id=anchorFor(picks);
+  if(id) startAnchor(id,toFinal);
+  else toFinal(true);            /* "Finish here": no anchoring; A17 only if they ask */
+}
+/* kept: the chosen line filled the figure; otherwise it ended without one */
+function toFinal(offer){
+  var kept=S.chosen;
+  S.stage='final'; S.fillT=kept?1:0; S.warmthT=kept?1:0.72; S.glitchT=0;
+  $('finalPhrase').textContent=kept||ENDED;
+  $('finalNote').textContent=kept?KEPT_NOTE:ENDED_NOTE;
+  $('thoughtBtn').style.display=offer?'':'none';
   show('final'); dots(3);
-  chord();
-  buzz([60,90,80,110,120,140,160,200,120]);
+  if(kept){ chord(); buzz([60,90,80,110,120,140,160,200,120]); }
 }
 
 /* ---------- draw ---------- */
@@ -261,6 +271,7 @@ document.addEventListener('contextmenu',function(e){e.preventDefault();});
 $('begin').addEventListener('click',function(){
   audioStart(); buzz(20); toBreath();
 });
+$('thoughtBtn').addEventListener('click',function(){ startAnchor('A17',toFinal); });
 $('again').addEventListener('click',function(){
   resetBreath(); resetQuiz(); resetAnchor();
   S.glitchT=1; S.warmthT=0; S.fillT=0; S.morphT=0; S.scale=1;

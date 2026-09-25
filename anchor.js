@@ -1,56 +1,65 @@
-/* stage 3: affirmation — pick (or write) a line, then hold the figure until it fills */
+/* stage 3: anchor — offer one thought to keep, edit or skip, then hold the figure until it fills */
 import {S,$,show,dots} from './core.js';
 import {tone,buzz} from './audio.js';
-import {pickLines} from './quiz.js';
+import {Anchors,AnchorRules} from './questions.js';
 
 export var ANCHOR_TIME=4.2;
-var SAY="Take the sentence you'd like to keep.";
-var spawnAt=0, onDone=null;
+var TITLE='A thought to take with you';
+var HOLD='Now press and hold the figure until the words are inside.';
+var line='', shown=0, mode='', spawnAt=0, onDone=null;
 
-export function startAnchor(done){
-  onDone=done;
-  S.stage='anchor'; S.glitchT=0; S.warmthT=0.72; dots(3); show('anchor');
-  var lines=pickLines(), box=$('phrases'); box.innerHTML='';
-  lines.forEach(function(txt){
-    var b=document.createElement('button');
-    b.className='phrase'; b.type='button'; b.textContent=txt;
-    b.addEventListener('click',function(){ choose(b,txt); });
-    box.appendChild(b);
+/* the anchor a finished walk ('node.answer' ids) leads to, or '' when it ended with "Finish here" */
+export function anchorFor(picks){
+  var last=picks[picks.length-1];
+  var hit=AnchorRules.find(function(r){
+    return r.last.indexOf(last)>=0 &&
+      (!r.after||r.after.some(function(p){ return picks.indexOf(p)>=0; }));
   });
-  $('ownBtn').style.display='';
-  $('ownWrap').style.display='none';
-  $('anchorHint').textContent='';
+  return hit?hit.anchor:'';
+}
+
+export function startAnchor(id,done){
+  onDone=done; line=Anchors[id]; shown=0;
+  S.stage='anchor'; S.chosen=''; S.glitchT=0; S.warmthT=0.72; dots(3); show('anchor');
+  $('phrase').textContent=line;
+  card('suggest');
 }
 export function resetAnchor(){
   S.chosen=''; S.anchor=0; S.lastStep=-1; S.particles=[];
-  $('anchorSay').textContent=SAY;
-  $('own').value=''; $('own').classList.remove('chosen');
 }
 
-/* el is a .phrase button or the #own input */
-function choose(el,txt){
-  S.chosen=txt;
-  var all=document.querySelectorAll('.phrase');
-  for(var i=0;i<all.length;i++){
-    all[i].classList.remove('chosen');
-    all[i].classList.toggle('dim',all[i]!==el);
-  }
-  $('own').classList.remove('chosen');
-  if(el) el.classList.add('chosen');
-  $('anchorSay').textContent='Now press and hold the figure until the words are inside.';
-  $('anchorHint').textContent='Four seconds, more or less.';
-  $('ownBtn').style.display='none';
+/* suggest: the offered line with keep / edit / skip; edit: rewrite it; hold: kept, fill the figure */
+function card(m){
+  mode=m;
+  $('anchorSay').textContent= m==='hold'?HOLD:TITLE;
+  $('anchorHint').textContent= m==='hold'?'Four seconds, more or less.':'';
+  $('phrase').style.display= m==='edit'?'none':'';
+  $('phrase').classList.toggle('chosen',m==='hold');
+  $('ownWrap').style.display= m==='edit'?'block':'none';
+  $('keepBtn').style.display= m==='hold'?'none':'';
+  $('editBtn').style.display= m==='edit'?'none':'';
+}
+function keep(){
+  var txt= mode==='edit'?$('own').value.trim():$('phrase').textContent;
+  if(!txt){ $('own').focus(); return; }
+  S.chosen=txt; $('phrase').textContent=txt; $('own').blur();
+  card('hold');
   tone(523.25,1.8,0.08,'sine');
 }
 
-/* ---------- own phrase ---------- */
-$('ownBtn').addEventListener('click',function(){
-  $('ownWrap').style.display='block'; $('ownBtn').style.display='none'; $('own').focus();
+/* ---------- card actions ---------- */
+$('keepBtn').addEventListener('click',keep);
+$('editBtn').addEventListener('click',function(){
+  var own=$('own'), txt=$('phrase').textContent;
+  S.chosen=''; own.value=txt;
+  card('edit');
+  own.focus(); own.setSelectionRange(txt.length,txt.length);
 });
-$('own').addEventListener('keydown',function(e){ if(e.key==='Enter') $('own').blur(); });
-$('own').addEventListener('blur',function(){
-  var v=$('own').value.trim();
-  if(v) choose($('own'),v);
+$('skipBtn').addEventListener('click',function(){
+  S.chosen=''; onDone();
+});
+$('own').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){ e.preventDefault(); keep(); }
 });
 
 /* ---------- holding ---------- */
@@ -70,7 +79,7 @@ export function anchorFrame(dt){
   }
 }
 function spawnParticles(n){
-  var el=document.querySelector('.phrase.chosen')||document.querySelector('#own.chosen');
+  var el=document.querySelector('.phrase.chosen');
   var ox=window.innerWidth*0.5, oy=window.innerHeight*0.78;
   if(el){ var r=el.getBoundingClientRect(); ox=r.left+r.width*(0.2+Math.random()*0.6); oy=r.top+r.height*0.5; }
   for(var i=0;i<n;i++){
