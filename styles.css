@@ -64,11 +64,16 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 
 .phrase{
   font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-  font-size:1.12rem;line-height:1.4;margin:0 0 6px;padding:16px 18px;border-radius:14px;
+  display:flex;align-items:center;
+  font-size:1.12rem;line-height:1.4;margin:0 0 6px;border-radius:14px;
   border:1px solid var(--line);background:rgba(140,165,205,.05);
   transition:background .3s,border-color .3s;
 }
 .phrase.chosen{background:rgba(242,176,97,.15);border-color:rgba(242,176,97,.65)}
+.thought{flex:1;min-width:0;text-align:left;padding:16px 18px;border-radius:13px;touch-action:none}
+.thoughtEdit{display:flex;align-items:center;gap:6px;flex:none;padding:14px 12px;margin-right:6px;font-size:.85rem;color:var(--warm);border-radius:8px}
+.thought:focus-visible,.thoughtEdit:focus-visible{outline:2px solid var(--warm);outline-offset:2px}
+.thought:active{background:rgba(242,176,97,.12)}
 #own{
   display:block;width:100%;padding:15px 17px;border-radius:14px;border:1px solid var(--line);
   background:rgba(140,165,205,.05);color:var(--ink);font-size:1.05rem;line-height:1.4;

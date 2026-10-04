@@ -27,7 +27,7 @@ function renderQuestion(){
     b.addEventListener('click',function(){ answer(b,opt); });
     box.appendChild(b);
   });
-  $('quizHint').textContent = node==='root' ? "Pick the one that's closest. Close is enough." : '';
+  $('quizHint').textContent = node==='root' ? 'Choose the closest answer.' : '';
 }
 function answer(el,opt){
   if($('opts').querySelector('.picked')) return;   /* one answer per question */

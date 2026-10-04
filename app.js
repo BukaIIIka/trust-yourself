@@ -93,8 +93,7 @@ function buildCircle(){
 var FIG=buildFigure(), CIR=buildCircle();
 
 /* ---------- flow ---------- */
-var KEPT_NOTE="It's in there now. Stay as long as you like — the light doesn't run out.";
-var ENDED="That's all for now.", ENDED_NOTE="Stay as long as you like.";
+var ENDED="That's all for now.";
 
 function toBreath(){ startBreath(toQuiz); }
 function toQuiz(){ startQuiz(toAnchor); }
@@ -108,7 +107,6 @@ function toFinal(offer){
   var kept=S.chosen;
   S.stage='final'; S.fillT=kept?1:0; S.warmthT=kept?1:0.72; S.glitchT=0;
   $('finalPhrase').textContent=kept||ENDED;
-  $('finalNote').textContent=kept?KEPT_NOTE:ENDED_NOTE;
   $('thoughtBtn').style.display=offer?'':'none';
   show('final'); dots(3);
   if(kept){ chord(); buzz([60,90,80,110,120,140,160,200,120]); }
@@ -259,7 +257,7 @@ function frame(now){
 /* ---------- input ---------- */
 function interactive(t){ return t && t.closest && t.closest('button,input,a,label'); }
 window.addEventListener('pointerdown',function(e){
-  if(interactive(e.target)) return;
+  if(S.stage!=='breath'||interactive(e.target)) return;
   S.holding=true;
   if(S.stage==='breath'&&!S.tookHold) audioStart();
 },{passive:true});

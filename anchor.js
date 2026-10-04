@@ -1,12 +1,12 @@
-/* stage 3: anchor — offer one thought to keep, edit or skip, then hold the figure until it fills */
+/* stage 3: anchor — select a thought, edit or skip, then hold the thought until the ring fills */
 import {S,$,show,dots} from './core.js';
 import {tone,buzz} from './audio.js';
 import {Anchors,AnchorRules} from './questions.js';
 
 export var ANCHOR_TIME=4.2;
-var TITLE='A thought to take with you';
-var HOLD='Now press and hold the figure until the words are inside.';
-var line='', shown=0, mode='', spawnAt=0, onDone=null;
+var TITLE='Choose a thought to keep';
+var HOLD='Press and hold the thought until the ring fills.';
+var line='', mode='', spawnAt=0, onDone=null;
 
 /* the anchor a finished walk ('node.answer' ids) leads to, or '' when it ended with "Finish here" */
 export function anchorFor(picks){
@@ -19,25 +19,26 @@ export function anchorFor(picks){
 }
 
 export function startAnchor(id,done){
-  onDone=done; line=Anchors[id]; shown=0;
+  resetAnchor();
+  onDone=done; line=Anchors[id];
   S.stage='anchor'; S.chosen=''; S.glitchT=0; S.warmthT=0.72; dots(3); show('anchor');
   $('phrase').textContent=line;
   card('suggest');
 }
 export function resetAnchor(){
-  S.chosen=''; S.anchor=0; S.lastStep=-1; S.particles=[];
+  S.chosen=''; S.anchor=0; S.fillT=0; S.holding=false; S.lastStep=-1; S.particles=[];
 }
 
-/* suggest: the offered line with keep / edit / skip; edit: rewrite it; hold: kept, fill the figure */
+/* suggest: click to select; edit: rewrite it; hold: press the selected thought to fill */
 function card(m){
   mode=m;
-  $('anchorSay').textContent= m==='hold'?HOLD:TITLE;
-  $('anchorHint').textContent= m==='hold'?'Four seconds, more or less.':'';
-  $('phrase').style.display= m==='edit'?'none':'';
-  $('phrase').classList.toggle('chosen',m==='hold');
+  $('anchorSay').textContent= m==='hold'?HOLD:m==='edit'?'Write your own thought':TITLE;
+  $('thoughtCard').style.display= m==='edit'?'none':'';
+  $('thoughtCard').classList.toggle('chosen',m==='hold');
+  $('phrase').setAttribute('aria-pressed',m==='hold'?'true':'false');
   $('ownWrap').style.display= m==='edit'?'block':'none';
-  $('keepBtn').style.display= m==='hold'?'none':'';
-  $('editBtn').style.display= m==='edit'?'none':'';
+  $('keepBtn').style.display= m==='edit'?'':'none';
+  $('editBtn').style.display= m==='hold'?'':'none';
 }
 function keep(){
   var txt= mode==='edit'?$('own').value.trim():$('phrase').textContent;
@@ -49,14 +50,33 @@ function keep(){
 
 /* ---------- card actions ---------- */
 $('keepBtn').addEventListener('click',keep);
+$('phrase').addEventListener('click',function(){
+  if(S.stage==='anchor'&&mode==='suggest') keep();
+});
+$('phrase').addEventListener('pointerdown',function(e){
+  if(S.stage!=='anchor'||mode!=='hold'||!e.isPrimary||e.button!==0) return;
+  S.holding=true;
+  this.setPointerCapture(e.pointerId);
+});
+$('phrase').addEventListener('lostpointercapture',function(){ S.holding=false; });
+$('phrase').addEventListener('keydown',function(e){
+  if(S.stage==='anchor'&&mode==='hold'&&(e.key===' '||e.key==='Enter')){
+    e.preventDefault(); S.holding=true;
+  }
+});
+$('phrase').addEventListener('keyup',function(e){
+  if(e.key===' '||e.key==='Enter') S.holding=false;
+});
+$('phrase').addEventListener('blur',function(){ S.holding=false; });
+window.addEventListener('blur',function(){ S.holding=false; });
 $('editBtn').addEventListener('click',function(){
   var own=$('own'), txt=$('phrase').textContent;
-  S.chosen=''; own.value=txt;
+  resetAnchor(); own.value=txt;
   card('edit');
   own.focus(); own.setSelectionRange(txt.length,txt.length);
 });
 $('skipBtn').addEventListener('click',function(){
-  S.chosen=''; onDone();
+  resetAnchor(); onDone();
 });
 $('own').addEventListener('keydown',function(e){
   if(e.key==='Enter'){ e.preventDefault(); keep(); }
@@ -72,7 +92,7 @@ export function anchorFrame(dt){
     if(S.t>spawnAt){ spawnAt=S.t+0.07; spawnParticles(2); }
     var step=Math.floor(S.anchor/0.7);
     if(step!==S.lastStep){ S.lastStep=step; buzz(16+step*10); }
-    if(S.anchor>=ANCHOR_TIME) onDone();
+    if(S.anchor>=ANCHOR_TIME){ S.holding=false; onDone(); }
   } else {
     S.anchor=Math.max(0,S.anchor-dt*0.35);
     S.fillT=S.anchor/ANCHOR_TIME;

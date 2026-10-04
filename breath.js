@@ -4,7 +4,7 @@ import {buzz} from './audio.js';
 
 var CYCLE=12, IN=4, OUT=8;
 var TICK=12, TURN=[28,70,28]; /* soft tick each second; firmer double pulse when direction turns */
-var NOTE="Keep your thumb anywhere on the screen. The circle will set the pace — follow it loosely, not perfectly.";
+var NOTE='Hold anywhere on the screen to start.';
 var onDone=null, lastSec=-1;
 
 export function startBreath(done){
@@ -21,7 +21,7 @@ export function resetBreath(){
 export function breathFrame(dt){
   if(S.holding){
     S.breath+=dt;
-    if(!S.tookHold){S.tookHold=true;$('breathNote').textContent="Follow the circle. In as it grows, out as it lets go.";}
+    if(!S.tookHold){S.tookHold=true;$('breathNote').textContent='Inhale as the circle grows. Exhale as it shrinks.';}
   }
   var total=CYCLE*S.rounds;
   var p=clamp(S.breath/total,0,1);
@@ -42,8 +42,8 @@ export function breathFrame(dt){
   if($('breathSkip').style.visibility!==skip) $('breathSkip').style.visibility=skip;
 
   if(!S.holding){
-    if($('phase').textContent!=='Paused'){ $('phase').textContent='Paused'; }
-    $('breathHint').textContent=S.tookHold?'Rest your thumb back whenever you want. Nothing is lost.':'';
+    $('phase').textContent=S.tookHold?'Paused':'Press and hold';
+    $('breathHint').textContent=S.tookHold?'Hold anywhere to continue.':'';
   } else if(ph!==S.phase||$('phase').textContent==='Paused'){
     S.phase=ph; lastSec=Math.floor(S.breath);
     $('phase').textContent= ph==='in'?'Breathe in':'Let it out';
